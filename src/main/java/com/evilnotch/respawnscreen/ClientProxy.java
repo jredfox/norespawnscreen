@@ -24,16 +24,17 @@ public class ClientProxy extends ServerProxy{
             return;
         if(e.getGui().getClass() == GuiGameOver.class)
         {
-        	if(p != Minecraft.getMinecraft().player)
-        		p = null;
-        	if(Minecraft.getMinecraft().player.isDead && p == null)
+        	if(ConfigRespawn.slowDeath)
         	{
-        		p = Minecraft.getMinecraft().player;
-        		Minecraft.getMinecraft().player.respawnPlayer();
-        		System.out.println("fired client only death:" + p.getName());
+        		if(p != Minecraft.getMinecraft().player)
+        			p = null;
+        		if(Minecraft.getMinecraft().player.isDead && p == null)
+        		{
+        			p = Minecraft.getMinecraft().player;
+        			Minecraft.getMinecraft().player.respawnPlayer();
+        		}
         	}
             e.setCanceled(true);
         }
     }
-
 }

@@ -3,13 +3,14 @@ package com.evilnotch.respawnscreen;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 
 import com.EvilNotch.lib.Api.MCPMappings;
 import com.EvilNotch.lib.Api.ReflectionUtil;
 import com.EvilNotch.lib.minecraft.EntityUtil;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
 import net.minecraft.entity.EntityLivingBase;
@@ -17,6 +18,7 @@ import net.minecraft.entity.item.EntityXPOrb;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.Packet;
+import net.minecraft.network.play.server.SPacketCombatEvent;
 import net.minecraft.scoreboard.IScoreCriteria;
 import net.minecraft.scoreboard.Score;
 import net.minecraft.scoreboard.ScoreObjective;
@@ -27,16 +29,18 @@ import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.Mod.EventHandler;
 import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerRespawnEvent;
+import net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
 
-@Mod(modid = MainJava.MODID, name = MainJava.NAME, version = MainJava.VERSION,acceptableRemoteVersions = "*", dependencies = "required-after:evilnotchlib")
+@Mod(modid = MainJava.MODID, name = MainJava.NAME, version = MainJava.VERSION, dependencies = "required-after:evilnotchlib")
 public class MainJava
 {
     public static final String MODID = "norespawnscreen";
@@ -59,7 +63,7 @@ public class MainJava
     {
     	ConfigRespawn.loadConfig(new File(event.getModConfigurationDirectory(),"norespawnscreen.cfg"));
     	proxy.preinit();
-        MinecraftForge.EVENT_BUS.register(this);
+    	MinecraftForge.EVENT_BUS.register(this);
         try 
         {
 			spawnShoulderEntities = EntityPlayer.class.getDeclaredMethod(MCPMappings.getMethod(EntityPlayer.class,"spawnShoulderEntities"));
@@ -83,47 +87,56 @@ public class MainJava
 		}
     }
     
-	@SubscribeEvent(priority = EventPriority.LOWEST)
-	public void onHurt(LivingHurtEvent e)
-	{
-		if(e.getEntity() instanceof EntityPlayerMP)
-		{
-	        float damage = e.getAmount();
-	        EntityLivingBase living = (EntityLivingBase) e.getEntity();
-	        float health = living.getHealth() - damage;
-	        if(health > 0.0F)
-	        	return;
-			EntityPlayerMP player = (EntityPlayerMP)e.getEntity();
-			
-			if(ConfigRespawn.slowDeath)
-				return;
-			
-			World oldWorld = player.world;
-			try
-			{
-				killPlayer(player,e.getSource());
-			}
-			catch(Throwable t)
-			{
-				t.printStackTrace();
-			}
-			player.extinguish();
-			EntityPlayerMP newPlayer = player.getServer().getPlayerList().recreatePlayerEntity(player, player.dimension, false);
-			player.connection.player = newPlayer;
-			if(oldWorld.provider.getDimension() == 1)
-				EntityUtil.removeDragonBars(oldWorld);
-			newPlayer.extinguish();
-			e.setCanceled(true);
-		}
-	}
-
+    /**
+     * fire fixer for auto respawn
+     */
+    @SubscribeEvent
+    public void onFTick(TickEvent.PlayerTickEvent e)
+    {
+    	if(e.phase != Phase.END || e.player.world.isRemote || e.player.ticksExisted > 20)
+    		return;
+    	if( ((EntityPlayerMP)e.player).getStatFile().readStat(StatList.TIME_SINCE_DEATH) <= 20)
+    	{
+    		e.player.extinguish();
+    	}
+    }
+    
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onDeath(LivingDeathEvent e)
+    {
+        if(e.getEntity() instanceof EntityPlayerMP)
+        {
+        	if(ConfigRespawn.slowDeath)
+        		return;
+            
+        	EntityPlayerMP player = (EntityPlayerMP)e.getEntity();
+        	try
+        	{
+        		killPlayer(player, e.getSource());
+        	}
+        	catch(Throwable t)
+        	{
+        		t.printStackTrace();
+        	}
+        	World oldWorld = player.world;
+            EntityPlayerMP newPlayer = player.getServer().getPlayerList().recreatePlayerEntity(player, player.dimension, false);
+            player.connection.player = newPlayer;
+            if(oldWorld.provider.getDimension() == 1)
+            {
+            	EntityUtil.removeDragonBars(oldWorld);
+            }
+            e.setCanceled(true);
+        }
+    }
+    
 	/**
 	 * kill player during kill event without it causing it to repost the event
 	 */
 	public static void killPlayer(EntityPlayerMP player,DamageSource cause) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException 
 	{
         boolean flag = player.world.getGameRules().getBoolean("showDeathMessages");
-//        player.connection.sendPacket(new SPacketCombatEvent(this.getCombatTracker(), SPacketCombatEvent.Event.ENTITY_DIED, flag));
+        player.isDead = true;
+        player.connection.sendPacket(new SPacketCombatEvent(player.getCombatTracker(), SPacketCombatEvent.Event.ENTITY_DIED, flag));
 
         if (flag)
         {
@@ -257,5 +270,5 @@ public class MainJava
 	{
 		return (Integer) ReflectionUtil.getObject(player, EntityLivingBase.class, recentlyHit);
 	}
-	
+    
 }
