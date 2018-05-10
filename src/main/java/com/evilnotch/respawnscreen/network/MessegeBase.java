@@ -1,5 +1,7 @@
 package com.evilnotch.respawnscreen.network;
 
+import com.evilnotch.respawnscreen.ClientProxy;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.fml.client.FMLClientHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -14,7 +16,7 @@ public abstract class MessegeBase<REQ extends IMessage> implements IMessageHandl
         if(ctx.side == Side.SERVER) {
             handleServerSide(message, ctx.getServerHandler().player);
         } else {
-            handleClientSide(message, FMLClientHandler.instance().getClientPlayerEntity());
+            handleClientSide(message, ClientProxy.getPlayer() );
         }
         return null;
     }

@@ -217,10 +217,10 @@ public class MainJava
         setFlag.invoke(player, 0, false);
         player.getCombatTracker().reset();
         dropXP(player);
-        NetWorkHandler.INSTANCE.sendToDimension(new PacketParticle(EnumParticleTypes.EXPLOSION_NORMAL,player.posX,player.posY,player.posZ),player.dimension);
+        NetWorkHandler.INSTANCE.sendToDimension(new PacketParticle(EnumParticleTypes.EXPLOSION_NORMAL,player.getEntityId(),player.posX,player.posY,player.posZ,player.width,player.height),player.dimension);
 	}
 
-	public static void spawnParticles(Entity e,int particleId,double x, double y, double z) 
+	public static void spawnParticles(Entity e,int particleId,double x, double y, double z,float width,float height) 
 	{
         for (int k = 0; k < 20; ++k)
         {
@@ -228,7 +228,7 @@ public class MainJava
             double d2 = rand.nextGaussian() * 0.02D;
             double d0 = rand.nextGaussian() * 0.02D;
             double d1 = rand.nextGaussian() * 0.02D;
-            e.world.spawnParticle(EnumParticleTypes.getParticleFromId(particleId), x + (double)(rand.nextFloat() * e.width * 2.0F) - (double)e.width, y + (double)(rand.nextFloat() * e.height), e.posZ + (double)(rand.nextFloat() * e.width * 2.0F) - (double)e.width, d2, d0, d1);
+            e.world.spawnParticle(EnumParticleTypes.getParticleFromId(particleId), x + (double)(rand.nextFloat() * width * 2.0F) - (double)width, y + (double)(rand.nextFloat() * height), z + (double)(rand.nextFloat() * width * 2.0F) - (double)width, d2, d0, d1);
         }
 	}
 
