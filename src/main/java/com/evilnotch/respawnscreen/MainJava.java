@@ -123,7 +123,8 @@ public class MainJava
             
             World oldWorld = player.world;
             player.dismountRidingEntity();
-        	player.world.removeEntityDangerously(player);
+        	player.world.playerEntities.remove(player);
+        	
             if(oldWorld.provider.getDimension() == 1)
             {
             	EntityUtil.removeDragonBars(oldWorld);
