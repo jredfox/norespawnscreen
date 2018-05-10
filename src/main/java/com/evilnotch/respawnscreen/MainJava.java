@@ -29,6 +29,7 @@ import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.GameType;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -39,6 +40,7 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 @Mod(modid = MainJava.MODID, name = MainJava.NAME, version = MainJava.VERSION, dependencies = "required-after:evilnotchlib")
 public class MainJava
@@ -119,8 +121,7 @@ public class MainJava
         	{
         		t.printStackTrace();
         	}
-            e.setCanceled(true);
-            
+          
             World oldWorld = player.world;
             player.dismountRidingEntity();
         	player.world.playerEntities.remove(player);
@@ -137,6 +138,7 @@ public class MainJava
             	newPlayer.setGameType(GameType.SPECTATOR);
             	newPlayer.getServerWorld().getGameRules().setOrCreateGameRule("spectatorsGenerateChunks", "false");
             }
+            e.setCanceled(true);
         }
     }
     
@@ -218,7 +220,24 @@ public class MainJava
         setFlag.invoke(player, 0, false);
         player.getCombatTracker().reset();
         dropXP(player);
-        NetWorkHandler.INSTANCE.sendToDimension(new PacketParticle(EnumParticleTypes.EXPLOSION_NORMAL,player.getEntityId(),player.posX,player.posY,player.posZ,player.width,player.height),player.dimension);
+        sendToAllPlayersWithinRange(player.world,player.posX,player.posY,player.posZ,EnumParticleTypes.EXPLOSION_NORMAL.getShouldIgnoreRange(),
+        		new PacketParticle(EnumParticleTypes.EXPLOSION_NORMAL,player.getEntityId(),player.posX,player.posY,player.posZ,player.width,player.height));
+	}
+
+	public static void sendToAllPlayersWithinRange(World world,double x, double y, double z, boolean longDistance,IMessage packet) 
+	{
+        for (int i = 0; i < world.playerEntities.size(); ++i)
+        {
+        	EntityPlayerMP player = (EntityPlayerMP) world.playerEntities.get(i);
+        	BlockPos blockpos = player.getPosition();
+        	double d0 = blockpos.distanceSq(x, y, z);
+
+        	if (d0 <= 1024.0D || longDistance && d0 <= 262144.0D)
+        	{
+//        		System.out.println("particle sent:" + player.getName());
+            	NetWorkHandler.INSTANCE.sendTo(packet, player);
+        	}
+        }
 	}
 
 	public static void spawnParticles(Entity e,int particleId,double x, double y, double z,float width,float height) 
