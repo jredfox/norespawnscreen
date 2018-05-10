@@ -1,11 +1,13 @@
 package com.evilnotch.respawnscreen;
 
+import java.awt.Point;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
 import com.EvilNotch.lib.Api.MCPMappings;
 import com.EvilNotch.lib.Api.ReflectionUtil;
@@ -36,7 +38,6 @@ import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
 
@@ -45,7 +46,7 @@ public class MainJava
 {
     public static final String MODID = "norespawnscreen";
     public static final String NAME = "No Respawn Screen";
-    public static final String VERSION = "1.1.2";
+    public static final String VERSION = "1.2";
     @SidedProxy(clientSide = "com.evilnotch.respawnscreen.ClientProxy", serverSide = "com.evilnotch.respawnscreen.ServerProxy")
 	public static ServerProxy proxy;
     public static Method spawnShoulderEntities;
@@ -101,6 +102,29 @@ public class MainJava
     	}
     }
     
+    public static HashMap<EntityPlayerMP,Point> deaths = new HashMap();
+    @SubscribeEvent
+    public void onDeathTick(TickEvent.ServerTickEvent e)
+    {
+    	if(e.phase != Phase.END || deaths.isEmpty())
+    		return;
+    	Iterator<Map.Entry<EntityPlayerMP,Point> > it = deaths.entrySet().iterator();
+    	while(it.hasNext())
+    	{
+    		Map.Entry<EntityPlayerMP,Point> pair = it.next();
+    		Point p = pair.getValue();
+    		if(p.x == p.y)
+    		{
+    			EntityPlayerMP player = pair.getKey();
+                EntityPlayerMP newPlayer = player.getServer().getPlayerList().recreatePlayerEntity(player, player.dimension, false);
+                player.connection.player = newPlayer;
+                it.remove();
+    		}
+    		else
+    			p.setLocation(p.x + 1, p.y);
+    	}
+    }
+    
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onDeath(LivingDeathEvent e)
     {
@@ -118,14 +142,14 @@ public class MainJava
         	{
         		t.printStackTrace();
         	}
-        	World oldWorld = player.world;
-            EntityPlayerMP newPlayer = player.getServer().getPlayerList().recreatePlayerEntity(player, player.dimension, false);
-            player.connection.player = newPlayer;
+            e.setCanceled(true);
+            deaths.put((EntityPlayerMP)e.getEntity(), new Point(0,1));
+            World oldWorld = player.world;
+        	player.world.removeEntityDangerously(player);
             if(oldWorld.provider.getDimension() == 1)
             {
             	EntityUtil.removeDragonBars(oldWorld);
             }
-            e.setCanceled(true);
         }
     }
     
