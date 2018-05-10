@@ -7,7 +7,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public class PacketParticle extends MessegeBase{
+public class PacketParticle extends MessegeBase<PacketParticle>{
 
     public int particleId;
 	public int id;
@@ -30,14 +30,14 @@ public class PacketParticle extends MessegeBase{
     }
 
 	@Override
-	public void handleClientSide(IMessage message, EntityPlayer player) 
-	{
-		if( !(message instanceof PacketParticle) )
-			return;
+	public void handleClientSide(PacketParticle message, EntityPlayer player) {
 		MainJava.spawnParticles(player,this.particleId);
 	}
 
 	@Override
-	public void handleServerSide(IMessage message, EntityPlayer player) {}
+	public void handleServerSide(PacketParticle message, EntityPlayer player) {
+		// TODO Auto-generated method stub
+		
+	}
 
 }
