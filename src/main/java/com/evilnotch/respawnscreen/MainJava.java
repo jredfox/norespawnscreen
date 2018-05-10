@@ -217,10 +217,11 @@ public class MainJava
         setFlag.invoke(player, 0, false);
         player.getCombatTracker().reset();
         dropXP(player);
-        NetWorkHandler.INSTANCE.sendToDimension(new PacketParticle(EnumParticleTypes.EXPLOSION_NORMAL,player.getEntityId() ),player.dimension);
+        System.out.println("deatgh");
+        NetWorkHandler.INSTANCE.sendToDimension(new PacketParticle(EnumParticleTypes.DRAGON_BREATH,player.getEntityId() ),player.dimension);
 	}
 
-	public static void spawnParticles(EntityLivingBase e,int particleId) 
+	public static void spawnParticles(Entity e,int particleId) 
 	{
         for (int k = 0; k < 20; ++k)
         {
