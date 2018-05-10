@@ -40,6 +40,7 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 @Mod(modid = MainJava.MODID, name = MainJava.NAME, version = MainJava.VERSION, dependencies = "required-after:evilnotchlib")
 public class MainJava
@@ -102,29 +103,6 @@ public class MainJava
     	}
     }
     
-    public static HashMap<EntityPlayerMP,Point> deaths = new HashMap();
-    @SubscribeEvent
-    public void onDeathTick(TickEvent.ServerTickEvent e)
-    {
-    	if(e.phase != Phase.END || deaths.isEmpty())
-    		return;
-    	Iterator<Map.Entry<EntityPlayerMP,Point> > it = deaths.entrySet().iterator();
-    	while(it.hasNext())
-    	{
-    		Map.Entry<EntityPlayerMP,Point> pair = it.next();
-    		Point p = pair.getValue();
-    		if(p.x == p.y)
-    		{
-    			EntityPlayerMP player = pair.getKey();
-                EntityPlayerMP newPlayer = player.getServer().getPlayerList().recreatePlayerEntity(player, player.dimension, false);
-                player.connection.player = newPlayer;
-                it.remove();
-    		}
-    		else
-    			p.setLocation(p.x + 1, p.y);
-    	}
-    }
-    
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onDeath(LivingDeathEvent e)
     {
@@ -143,13 +121,16 @@ public class MainJava
         		t.printStackTrace();
         	}
             e.setCanceled(true);
-            deaths.put((EntityPlayerMP)e.getEntity(), new Point(0,1));
+            
             World oldWorld = player.world;
+            player.dismountRidingEntity();
         	player.world.removeEntityDangerously(player);
             if(oldWorld.provider.getDimension() == 1)
             {
             	EntityUtil.removeDragonBars(oldWorld);
             }
+            EntityPlayerMP newPlayer = player.getServer().getPlayerList().recreatePlayerEntity(player, player.dimension, false);
+            player.connection.player = newPlayer;
         }
     }
     
