@@ -1,17 +1,15 @@
 package com.evilnotch.respawnscreen;
 
-import java.awt.Point;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Random;
 
 import com.EvilNotch.lib.Api.MCPMappings;
 import com.EvilNotch.lib.Api.ReflectionUtil;
 import com.EvilNotch.lib.minecraft.EntityUtil;
+import com.evilnotch.respawnscreen.network.NetWorkHandler;
+import com.evilnotch.respawnscreen.network.PacketParticle;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
@@ -29,6 +27,7 @@ import net.minecraft.stats.StatList;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.GameType;
 import net.minecraft.world.World;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -40,7 +39,6 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 @Mod(modid = MainJava.MODID, name = MainJava.NAME, version = MainJava.VERSION, dependencies = "required-after:evilnotchlib")
 public class MainJava
@@ -66,6 +64,7 @@ public class MainJava
     	ConfigRespawn.loadConfig(new File(event.getModConfigurationDirectory(),"norespawnscreen.cfg"));
     	proxy.preinit();
     	MinecraftForge.EVENT_BUS.register(this);
+    	NetWorkHandler.init();
         try 
         {
 			spawnShoulderEntities = EntityPlayer.class.getDeclaredMethod(MCPMappings.getMethod(EntityPlayer.class,"spawnShoulderEntities"));
@@ -131,6 +130,12 @@ public class MainJava
             }
             EntityPlayerMP newPlayer = player.getServer().getPlayerList().recreatePlayerEntity(player, player.dimension, false);
             player.connection.player = newPlayer;
+            
+            if (newPlayer.mcServer.isHardcore())
+            {
+            	newPlayer.setGameType(GameType.SPECTATOR);
+            	newPlayer.getServerWorld().getGameRules().setOrCreateGameRule("spectatorsGenerateChunks", "false");
+            }
         }
     }
     
@@ -212,10 +217,10 @@ public class MainJava
         setFlag.invoke(player, 0, false);
         player.getCombatTracker().reset();
         dropXP(player);
-        spawnParticles(player);
+        NetWorkHandler.INSTANCE.sendToDimension(new PacketParticle(EnumParticleTypes.EXPLOSION_NORMAL,player.getEntityId() ),player.dimension);
 	}
 
-	public static void spawnParticles(EntityPlayerMP e) 
+	public static void spawnParticles(EntityLivingBase e,int particleId) 
 	{
         for (int k = 0; k < 20; ++k)
         {
@@ -223,10 +228,8 @@ public class MainJava
             double d2 = rand.nextGaussian() * 0.02D;
             double d0 = rand.nextGaussian() * 0.02D;
             double d1 = rand.nextGaussian() * 0.02D;
-            e.world.spawnParticle(EnumParticleTypes.EXPLOSION_NORMAL, e.posX + (double)(rand.nextFloat() * e.width * 2.0F) - (double)e.width, e.posY + (double)(rand.nextFloat() * e.height), e.posZ + (double)(rand.nextFloat() * e.width * 2.0F) - (double)e.width, d2, d0, d1);
+            e.world.spawnParticle(EnumParticleTypes.getParticleFromId(particleId), e.posX + (double)(rand.nextFloat() * e.width * 2.0F) - (double)e.width, e.posY + (double)(rand.nextFloat() * e.height), e.posZ + (double)(rand.nextFloat() * e.width * 2.0F) - (double)e.width, d2, d0, d1);
         }
-//        Packet<?> packet = new SPacketParticles(EnumParticleTypes.EXPLOSION_NORMAL, EnumParticleTypes.EXPLOSION_NORMAL.getShouldIgnoreRange(), (float)e.posX, (float)e.posY, (float)e.posZ, (float)x2, (float)y2, (float)z2, (float)speed, count, arguments);
-//        sendPacketWithinDistance((EntityPlayerMP)e,false,e.posX,e.posY,e.posZ,packet);
 	}
 	
     private static void sendPacketWithinDistance(EntityPlayerMP player, boolean longDistance, double x, double y, double z, Packet<?> packetIn)
