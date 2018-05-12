@@ -104,7 +104,7 @@ public class MainJava
     	}
     }
     
-    @SubscribeEvent(priority = EventPriority.LOWEST)
+    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
     public void onDeath(LivingDeathEvent e)
     {
         if(e.getEntity() instanceof EntityPlayerMP)
