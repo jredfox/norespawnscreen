@@ -5,6 +5,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Random;
 
+import org.apache.logging.log4j.Level;
+
 import com.EvilNotch.lib.Api.MCPMappings;
 import com.EvilNotch.lib.Api.ReflectionUtil;
 import com.EvilNotch.lib.minecraft.EntityUtil;
@@ -39,6 +41,7 @@ import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -97,49 +100,63 @@ public class MainJava
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
     public void onDeath(LivingDeathEvent e)
     {
-        if(e.getEntity() instanceof EntityPlayerMP)
-        {
-        	if(ConfigRespawn.slowDeath)
-        		return;
-            
-        	EntityPlayerMP player = (EntityPlayerMP)e.getEntity();
-        	try
-        	{
-        		killPlayer(player, e.getSource());
-        	}
-        	catch(Throwable t)
-        	{
-        		t.printStackTrace();
-        	}
-          
-            World oldWorld = player.world;
-            player.dismountRidingEntity();
-        	player.world.playerEntities.remove(player);
-        	
-            if(oldWorld.provider.getDimension() == 1)
-            {
-            	EntityUtil.removeDragonBars(oldWorld);
-            }
-            EntityPlayerMP newPlayer = player.getServer().getPlayerList().recreatePlayerEntity(player, player.dimension, false);
-            player.connection.player = newPlayer;
-            try 
-            {
-				capture.setAccessible(true);
-				capture.invoke(player.connection);
-			} 
-            catch (Throwable t)
-            {
-				t.printStackTrace();
-            }
-            
-            if (newPlayer.mcServer.isHardcore())
-            {
-            	newPlayer.setGameType(GameType.SPECTATOR);
-            	newPlayer.getServerWorld().getGameRules().setOrCreateGameRule("spectatorsGenerateChunks", "false");
-            }
+    	if(ConfigRespawn.slowDeath)
+    		return;
+    	if(e.getEntity() instanceof EntityPlayerMP)
+    	{
+    		respawnPlayer((EntityPlayerMP)e.getEntity(),e.getSource(),true);
             e.setCanceled(true);
-        }
+    	}
     }
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onLogin(PlayerLoggedInEvent e)
+    {
+    	if(!(e.player instanceof EntityPlayerMP))
+    		return;
+    	if(e.player.isDead || e.player.getHealth() <= 0.0F)
+    	{
+    		respawnPlayer((EntityPlayerMP)e.player,null,false);//since player already died in vanilla or lucky clutch logout don't re-kill the player just respawn
+    		System.out.print("[NSR] re-spawned dead player on login:" + e.player.getName() + "\n");
+    	}
+    }
+    public static void respawnPlayer(EntityPlayerMP player,DamageSource source,boolean killPlayer) 
+    {
+       	try
+       	{
+       		if(killPlayer)
+       			killPlayer(player, source);
+       	}
+       	catch(Throwable t)
+       	{
+       		t.printStackTrace();
+       	}
+         
+        World oldWorld = player.world;
+        player.dismountRidingEntity();
+      	player.world.playerEntities.remove(player);
+       	
+        if(oldWorld.provider.getDimension() == 1)
+        {
+           	EntityUtil.removeDragonBars(oldWorld);
+        }
+        EntityPlayerMP newPlayer = player.getServer().getPlayerList().recreatePlayerEntity(player, player.dimension, false);
+        player.connection.player = newPlayer;
+        try 
+        {
+        	capture.setAccessible(true);
+			capture.invoke(player.connection);
+		} 
+        catch (Throwable t)
+        {
+        	t.printStackTrace();
+        }
+            
+        if (newPlayer.mcServer.isHardcore())
+        {
+         	newPlayer.setGameType(GameType.SPECTATOR);
+           	newPlayer.getServerWorld().getGameRules().setOrCreateGameRule("spectatorsGenerateChunks", "false");
+        }
+	}
     
 	/**
 	 * kill player during kill event without it causing it to repost the event
