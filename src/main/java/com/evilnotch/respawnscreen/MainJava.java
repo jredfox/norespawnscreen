@@ -17,6 +17,7 @@ import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityXPOrb;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.NetHandlerPlayServer;
 import net.minecraft.network.Packet;
 import net.minecraft.network.play.server.SPacketCombatEvent;
 import net.minecraft.scoreboard.IScoreCriteria;
@@ -47,12 +48,13 @@ public class MainJava
 {
     public static final String MODID = "norespawnscreen";
     public static final String NAME = "No Respawn Screen";
-    public static final String VERSION = "1.2";
+    public static final String VERSION = "1.2.2";
     @SidedProxy(clientSide = "com.evilnotch.respawnscreen.ClientProxy", serverSide = "com.evilnotch.respawnscreen.ServerProxy")
 	public static ServerProxy proxy;
     public static Method spawnShoulderEntities;
     public static Method destroyVanishingCursedItems;
     public static Method setFlag;
+    public static Method capture;
     
     public static String recentlyHit;
 	private static String scoreValue;
@@ -73,11 +75,13 @@ public class MainJava
 			destroyVanishingCursedItems = EntityPlayer.class.getDeclaredMethod(MCPMappings.getMethod(EntityPlayer.class,"destroyVanishingCursedItems"));
 			setFlag = Entity.class.getDeclaredMethod(MCPMappings.getMethod(Entity.class, "setFlag"), int.class,boolean.class);
 			getExperiencePoints = EntityLivingBase.class.getDeclaredMethod(MCPMappings.getMethod(EntityLivingBase.class, "getExperiencePoints"), EntityPlayer.class);
-					
+			capture = NetHandlerPlayServer.class.getDeclaredMethod(MCPMappings.getMethod(NetHandlerPlayServer.class, "captureCurrentPosition"));
+			
 			spawnShoulderEntities.setAccessible(true);
 			destroyVanishingCursedItems.setAccessible(true);
 			setFlag.setAccessible(true);
 			getExperiencePoints.setAccessible(true);
+			capture.setAccessible(true);
 			
 			recentlyHit = MCPMappings.getField(EntityLivingBase.class, "recentlyHit");
 			scoreValue = MCPMappings.getField(EntityLivingBase.class, "scoreValue");
@@ -88,20 +92,6 @@ public class MainJava
         {
 			t.printStackTrace();
 		}
-    }
-    
-    /**
-     * fire fixer for auto respawn
-     */
-    @SubscribeEvent
-    public void onFTick(TickEvent.PlayerTickEvent e)
-    {
-    	if(e.phase != Phase.END || e.player.world.isRemote || e.player.ticksExisted > 20)
-    		return;
-    	if( ((EntityPlayerMP)e.player).getStatFile().readStat(StatList.TIME_SINCE_DEATH) <= 20)
-    	{
-    		e.player.extinguish();
-    	}
     }
     
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
@@ -132,6 +122,15 @@ public class MainJava
             }
             EntityPlayerMP newPlayer = player.getServer().getPlayerList().recreatePlayerEntity(player, player.dimension, false);
             player.connection.player = newPlayer;
+            try 
+            {
+				capture.setAccessible(true);
+				capture.invoke(player.connection);
+			} 
+            catch (Throwable t)
+            {
+				t.printStackTrace();
+            }
             
             if (newPlayer.mcServer.isHardcore())
             {
@@ -148,7 +147,6 @@ public class MainJava
 	public static void killPlayer(EntityPlayerMP player,DamageSource cause) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException 
 	{
         boolean flag = player.world.getGameRules().getBoolean("showDeathMessages");
-        player.isDead = true;
         player.connection.sendPacket(new SPacketCombatEvent(player.getCombatTracker(), SPacketCombatEvent.Event.ENTITY_DIED, flag));
 
         if (flag)
