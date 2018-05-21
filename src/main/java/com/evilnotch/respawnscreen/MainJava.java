@@ -22,6 +22,9 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.NetHandlerPlayServer;
 import net.minecraft.network.Packet;
 import net.minecraft.network.play.server.SPacketCombatEvent;
+import net.minecraft.network.play.server.SPacketPlayerAbilities;
+import net.minecraft.network.play.server.SPacketRespawn;
+import net.minecraft.network.play.server.SPacketSetExperience;
 import net.minecraft.scoreboard.IScoreCriteria;
 import net.minecraft.scoreboard.Score;
 import net.minecraft.scoreboard.ScoreObjective;
@@ -113,7 +116,7 @@ public class MainJava
     {
     	if(!(e.player instanceof EntityPlayerMP))
     		return;
-    	if(e.player.isDead || e.player.getHealth() <= 0.0F)
+    	if(e.player.getHealth() <= 0.0F)
     	{
     		respawnPlayer((EntityPlayerMP)e.player,null,false);//since player already died in vanilla or lucky clutch logout don't re-kill the player just respawn
     		System.out.print("[NSR] re-spawned dead player on login:" + e.player.getName() + "\n");
